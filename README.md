@@ -33,6 +33,14 @@ Redis Module:
 	  "source": "https://github.com/arioch/puppet-redis",
 
 
+To use Arioch module, add this declaration to your Puppetfile:
+
+	mod 'arioch-redis', '1.2.1'
+
+To manually install this module with puppet module tool:
+
+	puppet module install arioch-redis --version 1.2.1
+
 
 #### HOW TO PREPARE THE REDIS CLUSTER 
 
