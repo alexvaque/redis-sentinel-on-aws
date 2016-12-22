@@ -1,0 +1,75 @@
+#/bin/bash
+IP=$(facter ipaddress)
+COUNTER=0
+ECINSTANCEID=$(facter ec2_instance_id)
+ELBSLAVESNAME="<%=@elbslavesname%>"
+ELBMASTERNAME="<%=@elbservername%>"
+
+ROLE=$(/usr/bin/redis-cli -h $IP -p 6379 info | grep role | grep master | wc -l )
+ASGMASTER=$(aws elb describe-load-balancers --load-balancer-name stg-redismaster-apistats | grep $ECINSTANCEID |wc -l)
+
+echo "The server $IP has ROLE"$ROLE""
+
+[ ! -z "$ELBSLAVESNAME" ] || exit -1
+[ ! -z "$ELBMASTERNAME" ] || exit -1
+
+if [ $ROLE -eq 1 ]
+then
+        echo "I am a MASTER, checking ..."
+        for i in {1..5}
+        do
+           echo "======"
+           /bin/sleep 5
+           ROLE=$(/usr/bin/redis-cli -h $IP -p 6379 info | grep role | grep master | wc -l )
+
+                if [ $ROLE -eq 1 ] && [ $ASGMASTER -eq 0 ]; then
+                    echo "MASTER: WARNING Conflict"
+                    let COUNTER=COUNTER+1
+                    echo "MASTER: counter is" $COUNTER
+                else
+                    echo "MASTER: False Alarm"
+                    exit -1
+                fi
+
+        done
+
+        if [ $COUNTER -eq 5 ]; then
+            echo "New Master" 
+            /bin/sleep 15
+            #aws elb deregister-instances-from-load-balancer --load-balancer-name $ELBSLAVESNAME --instances $ECINSTANCEID    
+            #aws elb register-instances-with-load-balancer   --load-balancer-name $ELBMASTERNAME --instances $ECINSTANCEID
+        fi
+
+else
+        echo "I am SLAVE"
+        for i in {1..5}
+        do 
+           echo "======"
+           /bin/sleep 10
+           ROLE=$(/usr/bin/redis-cli -h $IP -p 6379 info | grep role | grep master |wc -l )
+           ASGMASTER=$(aws elb describe-load-balancers --load-balancer-name stg-redismaster-apistats | grep $ECINSTANCEID |wc -l)
+           echo "SLAVE: The server $IP has ROLE"$ROLE""
+           echo "SLAVE: Welcome $i times"
+           echo "SLAVE: ASGMASTER is"$ASGMASTER
+
+                if [ $ROLE -eq 0 ] && [ $ASGMASTER -eq 1 ]; then
+                    echo "SLAVE: ERROR - what are you doing here ? removing Old Master "
+                    let COUNTER=COUNTER+1
+                    echo "SLAVE: The counter is "$COUNTER
+                else
+                    echo "SLAVE: False Alarm"
+                    echo "SLAVE: all is OK"
+                    exit -1
+                fi
+
+        done
+
+        if [ $COUNTER -eq 5 ]; then
+            echo "Old Master"
+            #aws elb deregister-instances-from-load-balancer --load-balancer-name $ELBMASTERNAME --instances $ECINSTANCEID
+            #aws elb register-instances-with-load-balancer   --load-balancer-name $ELBSLAVESNAME --instances $ECINSTANCEID
+        fi
+fi
+
+
+
