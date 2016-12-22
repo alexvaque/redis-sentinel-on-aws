@@ -13,6 +13,14 @@
 
 ## Dependencies 
 
+
+My personal tests with Redis Sentinel.
+
+I am using arioch-redis Puppet Module. LetRedis module add the logic to change the redis master when the master faulti. How? So a Script was checking the service and if this script detects that the master faults, the script promotes a RedisSlave to be a Redis Master. 
+
+Needs improvements and maybe we can use some service discovery like Consul or similars to improve the module. Althought the best solution is to use Redis Cluster. 
+
+
 AWS Linux on AWS
 AWS Infrastructure
 Redis Module:
